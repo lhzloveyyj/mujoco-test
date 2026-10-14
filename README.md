@@ -8,7 +8,13 @@ FK_IK/
 │   ├── README.md             # 目录约定:一个模型/部件一个文件夹,网格放各自的 assets/
 │   ├── two_link_arm.xml      # 主模型:4 自由度手臂 + Robotiq 2F-85 夹爪 + 地面 + 目标点
 │   └── grippers/robotiq_2f85/ # 夹爪部件:原版 XML + 8 个 STL + LICENSE + 说明
-├── sim.cpp                   # 仿真程序 —— 你的算法写在 my_algorithm() 里
+├── src/                      # 仿真程序,按职责分文件
+│   ├── control.cpp           # ★ 你的算法(my_algorithm)    ← 平时只改这个
+│   ├── control.hpp           # 控制接口声明 + 模型/关节说明
+│   ├── robot.hpp             # 模型加载、步进、读状态(Sim)
+│   ├── viewer.cpp            # 原生窗口:渲染、鼠标视角、信息面板
+│   ├── viewer.hpp
+│   └── main.cpp              # 入口:解析命令行、加载模型、开窗口
 ├── Makefile                  # make 编译
 └── sim                       # 编译产物(可删,make 会重新生成)
 ```
@@ -45,13 +51,15 @@ make                      # 编译出 sim
 > 窗口里的文字只能用 ASCII —— MuJoCo 内置字体没有中文字形,写中文会变成方块,
 > 所以界面上是英文,中文说明都在终端和这份 README 里。
 
-机械臂的姿态由**你的算法**决定 —— 改 `my_algorithm()` 再 `make && ./sim` 就能看到新效果。
+机械臂的姿态由**你的算法**决定 —— 改 `src/control.cpp` 里的 `my_algorithm()` 再
+`make && ./sim` 就能看到新效果。其余文件(模型封装、窗口、入口)不用动;
+以后想换模型只改 `models/`,想改界面只改 `src/viewer.cpp`。
 
 需要图形界面(它是个真窗口程序),所以在没有显示器的环境里跑不起来。
 
 ## 你的算法写在哪
 
-`sim.cpp` 里只有这一个函数是你需要改的:
+**平时你只需要改 [src/control.cpp](src/control.cpp) 这一个文件**,里面就一个函数:
 
 ```cpp
 static void my_algorithm(const mjModel* m, mjData* d, double t, double dt) {

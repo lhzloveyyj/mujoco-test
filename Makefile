@@ -1,5 +1,9 @@
 # 仿真程序:make 编译出 sim,然后 ./sim 运行。
-# 你的算法写在 sim.cpp 的 my_algorithm() 里,其它不用动。
+#
+#   src/control.cpp  你的算法(平时只改这个)
+#   src/robot.hpp    模型加载与步进
+#   src/viewer.cpp   窗口、渲染、鼠标交互
+#   src/main.cpp     入口
 
 MJ ?= $(firstword $(wildcard $(HOME)/workspace/miniconda3/lib/python*/site-packages/mujoco))
 MJLIB := $(notdir $(firstword $(wildcard $(MJ)/libmujoco.so.*)))
@@ -14,8 +18,11 @@ LDFLAGS  := -lglfw -L$(MJ) -l:$(MJLIB) -Wl,-rpath,$(MJ)
 
 all: sim
 
-sim: sim.cpp
-	$(CXX) $(CXXFLAGS) -o $@ sim.cpp $(LDFLAGS)
+SRC := $(wildcard src/*.cpp)
+HDR := $(wildcard src/*.hpp)
+
+sim: $(SRC) $(HDR)
+	$(CXX) $(CXXFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
 run: sim
 	./sim
@@ -28,4 +35,3 @@ check-env:
 
 clean:
 	rm -f sim
-	rm -rf sim_out
