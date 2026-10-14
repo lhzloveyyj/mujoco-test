@@ -1,0 +1,355 @@
+<mujoco model="three_link_arm_2f85">
+  <!-- 3 自由度机械臂(3R:底座回转 + 肩俯仰 + 肘俯仰)+ Robotiq 2F-85 两指夹爪
+
+       手臂部分(自己建的):
+         joint1_yaw       绕 z 轴回转(底座)
+         joint2_shoulder  绕 y 轴俯仰(肩) —— 手臂在这里上下摆
+         joint3_elbow     绕 y 轴俯仰(肘)
+         joint4_wrist     绕小臂轴线回转(腕,和小臂同轴)—— 让夹爪张合方向转圈
+         每个关节都配了电机外形(深灰壳体 + 橙色转子法兰)
+
+       夹爪(Robotiq 2F-85,来自 MuJoCo Menagerie,BSD-3-Clause,见 models/assets/LICENSE):
+         1 个驱动器 fingers_actuator 驱动左右两根驱动杆,4 杆机构靠 equality 约束闭合,
+         所以 8 个关节只有 1 个自由度。ctrl[4] 范围 0~255:**0 = 全开,255 = 闭紧**
+         (指垫间距 98 mm → 15 mm,行程约 85 mm,和真机规格一致;闭紧时两片指垫会互相接触,
+         这是原模型自带的行为,不是 bug)。
+         网格单位是毫米,asset 里按 0.001 缩放。
+
+       注意:俯仰关节的轴不平行于重力方向,所以重力会产生关节力矩 —— 位置伺服要一直出力撑住。
+       4 个臂关节(含腕回转)+ 夹爪 1 个自由度 = 5 个可驱动自由度(夹爪内部 8 个关节是耦合的)。 -->
+  <!-- meshdir 不设 = 网格路径相对本文件所在目录(models/)。
+       网格按"部件"分文件夹,所以这里写全相对路径,以后加别的部件不会打架。 -->
+  <compiler angle="radian" autolimits="true"/>
+
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic"
+          impratio="10"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.35 0.35 0.35" specular="0.1 0.1 0.1"/>
+    <global azimuth="140" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+             rgb1="0.16 0.18 0.21" rgb2="0.24 0.27 0.32"/>
+    <material name="grid" texture="grid" texrepeat="8 8" reflectance="0.1"/>
+    <material name="base_mat" rgba="0.30 0.32 0.36 1"/>
+    <material name="link1_mat" rgba="0.25 0.60 0.90 1"/>
+    <material name="link2_mat" rgba="0.95 0.62 0.22 1"/>
+    <material name="target_mat" rgba="0.15 0.85 0.35 0.75"/>
+    <material name="motor_mat" rgba="0.22 0.23 0.26 1"/>
+    <material name="motor_cap_mat" rgba="0.72 0.30 0.12 1"/>
+    <!-- 夹爪自带的材质 -->
+    <material name="metal" rgba="0.58 0.58 0.58 1"/>
+    <material name="silicone" rgba="0.1882 0.1882 0.1882 1"/>
+    <material name="gray" rgba="0.4627 0.4627 0.4627 1"/>
+    <material name="black" rgba="0.149 0.149 0.149 1"/>
+
+    <!-- Robotiq 2F-85 的网格(单位毫米,靠 class="gripper" 里的 scale 缩放) -->
+    <mesh class="gripper" file="grippers/robotiq_2f85/assets/base_mount.stl"/>
+    <mesh class="gripper" file="grippers/robotiq_2f85/assets/base.stl"/>
+    <mesh class="gripper" file="grippers/robotiq_2f85/assets/driver.stl"/>
+    <mesh class="gripper" file="grippers/robotiq_2f85/assets/coupler.stl"/>
+    <mesh class="gripper" file="grippers/robotiq_2f85/assets/follower.stl"/>
+    <mesh class="gripper" file="grippers/robotiq_2f85/assets/pad.stl"/>
+    <mesh class="gripper" file="grippers/robotiq_2f85/assets/silicone_pad.stl"/>
+    <mesh class="gripper" file="grippers/robotiq_2f85/assets/spring_link.stl"/>
+  </asset>
+
+  <default>
+    <!-- 关节默认是绕 z 的铰链(只有回转关节用默认值);俯仰关节会显式写 axis="0 1 0"。
+         两个俯仰关节带限位(真实机械臂都有),避免手臂转到砸自己底座或穿到地下。 -->
+    <joint type="hinge" axis="0 0 1" pos="0 0 0"
+           damping="0.6" armature="0.02" frictionloss="0.02"/>
+    <geom type="capsule" size="0.03" density="800"/>
+    <site type="sphere" size="0.02" rgba="0.88 0.15 0.20 1"/>
+
+    <!-- 夹爪专用默认值:整体来自 Menagerie 的 robotiq_2f85,只改了类名并关掉摩擦损耗 -->
+    <default class="gripper">
+      <mesh scale="0.001 0.001 0.001"/>
+      <general biastype="affine"/>
+      <joint axis="1 0 0" frictionloss="0"/>
+      <default class="driver">
+        <joint range="0 0.8" armature="0.005" damping="0.1" solimplimit="0.95 0.99 0.001"
+               solreflimit="0.005 1"/>
+      </default>
+      <default class="follower">
+        <joint range="-0.872664 0.872664" armature="0.001" pos="0 -0.018 0.0065"
+               solimplimit="0.95 0.99 0.001" solreflimit="0.005 1"/>
+      </default>
+      <default class="spring_link">
+        <joint range="-0.29670597283 0.8" armature="0.001" stiffness="0.05" springref="2.62"
+               damping="0.00125"/>
+      </default>
+      <default class="coupler">
+        <joint range="-1.57 0" armature="0.001" solimplimit="0.95 0.99 0.001"
+               solreflimit="0.005 1"/>
+      </default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" group="3"/>
+        <default class="pad_box1">
+          <geom mass="0" type="box" pos="0 -0.0026 0.028125" size="0.011 0.004 0.009375"
+                friction="0.7" solimp="0.95 0.99 0.001" solref="0.004 1" priority="1"
+                rgba="0.55 0.55 0.55 1"/>
+        </default>
+        <default class="pad_box2">
+          <geom mass="0" type="box" pos="0 -0.0026 0.009375" size="0.011 0.004 0.009375"
+                friction="0.6" solimp="0.95 0.99 0.001" solref="0.004 1" priority="1"
+                rgba="0.45 0.45 0.45 1"/>
+        </default>
+      </default>
+    </default>
+  </default>
+
+  <worldbody>
+    <light name="top" pos="0 0 2.0" dir="0 0 -1" directional="true"/>
+    <geom name="floor" type="plane" size="2 2 0.1" material="grid"
+          pos="0 0 0" condim="3" friction="1 0.005 0.0001"/>
+
+    <!-- 目标点(mocap body,不受物理影响)。在算法里写 d->mocap_pos 就能挪它。 -->
+    <body name="target" mocap="true" pos="0.55 0.20 0.45">
+      <geom name="target_geom" type="sphere" size="0.028" material="target_mat"
+            contype="0" conaffinity="0"/>
+      <site name="target_site" pos="0 0 0" size="0.008" rgba="0.15 0.9 0.35 1"/>
+    </body>
+
+    <!-- 固定底座 -->
+    <body name="base" pos="0 0 0.09">
+      <geom name="base_geom" type="cylinder" size="0.07 0.045" pos="0 0 -0.045"
+            material="base_mat"/>
+      <!-- 回转电机:壳体在底座(不转),轴沿 z -->
+      <geom name="motor_yaw_housing" type="cylinder" size="0.055 0.032" pos="0 0 0.008"
+            material="motor_mat"/>
+      <geom name="motor_yaw_flange" type="cylinder" size="0.062 0.006" pos="0 0 -0.028"
+            material="motor_mat"/>
+
+      <!-- 回转台上的部分(跟着 joint1_yaw 转) -->
+      <body name="shoulder" pos="0 0 0">
+        <joint name="joint1_yaw" axis="0 0 1"/>
+        <geom name="motor_yaw_rotor" type="cylinder" size="0.036 0.012" pos="0 0 0.036"
+              material="motor_cap_mat"/>
+
+        <!-- 肩俯仰电机:壳体挂在 shoulder 上(不跟着俯仰),轴沿 y -->
+        <geom name="motor_sh_housing" type="cylinder" size="0.050 0.032" pos="0 0 0.09"
+              quat="0.70710678 -0.70710678 0 0" material="motor_mat"/>
+        <geom name="motor_sh_flange" type="cylinder" size="0.056 0.006" pos="0 0.038 0.09"
+              quat="0.70710678 -0.70710678 0 0" material="motor_mat"/>
+
+        <!-- 大臂:肩俯仰关节在 (0,0,0.09),也就是离地 0.18 m -->
+        <body name="link1" pos="0 0 0.09">
+          <joint name="joint2_shoulder" axis="0 1 0" range="-2.8 1.4"/>
+          <geom name="motor_sh_rotor" type="cylinder" size="0.030 0.012" pos="0 -0.036 0"
+                quat="0.70710678 -0.70710678 0 0" material="motor_cap_mat"/>
+          <geom name="link1_geom" fromto="0 0 0 0.5 0 0" material="link1_mat"/>
+
+          <!-- 肘俯仰电机:壳体挂在大臂末端(不跟着小臂转),轴沿 y -->
+          <geom name="motor_el_housing" type="cylinder" size="0.045 0.030" pos="0.5 0 0"
+                quat="0.70710678 -0.70710678 0 0" material="motor_mat"/>
+          <geom name="motor_el_flange" type="cylinder" size="0.050 0.005" pos="0.5 0.036 0"
+                quat="0.70710678 -0.70710678 0 0" material="motor_mat"/>
+
+          <!-- 小臂 -->
+          <body name="link2" pos="0.5 0 0">
+            <joint name="joint3_elbow" axis="0 1 0" range="-2.9 2.9"/>
+            <geom name="motor_el_rotor" type="cylinder" size="0.026 0.012" pos="0 -0.034 0"
+                  quat="0.70710678 -0.70710678 0 0" material="motor_cap_mat"/>
+            <geom name="link2_geom" fromto="0 0 0 0.4 0 0" material="link2_mat"/>
+
+            <!-- ================= Robotiq 2F-85 夹爪 =================
+                 安装:法兰在小臂末端 x=0.40(截面是 y-z 平面)。
+                 夹爪模型的工具轴是 +z,所以绕 y 转 90° 让它指向 +x(顺着小臂)。
+                 (quat = 绕 y 轴 +90° 的四元数) -->
+            <!-- ===== 腕部回转电机:轴线和小臂重合,让夹爪绕着杆的轴向转 =====
+                 壳体(深灰套筒)固定在小臂上、不跟着转;橙色薄盘是转子,跟着夹爪一起转。
+                 joint4_wrist 的轴就是小臂的 +x,也就是杆的轴向。 -->
+            <geom name="motor_wr_housing" type="cylinder" size="0.040 0.026" pos="0.372 0 0"
+                  quat="0.70710678 0 0.70710678 0" material="motor_mat"/>
+            <geom name="motor_wr_flange" type="cylinder" size="0.046 0.005" pos="0.338 0 0"
+                  quat="0.70710678 0 0.70710678 0" material="motor_mat"/>
+
+            <body name="wrist" pos="0.40 0 0">
+              <joint name="joint4_wrist" axis="1 0 0"/>
+              <geom name="motor_wr_rotor" type="cylinder" size="0.028 0.009" pos="0.005 0 0"
+                    quat="0.70710678 0 0.70710678 0" material="motor_cap_mat"/>
+
+              <body name="gripper_mount" quat="0.70710678 0 0.70710678 0"
+                  childclass="gripper">
+              <geom class="visual" mesh="base_mount" material="black"/>
+              <geom class="collision" mesh="base_mount"/>
+
+              <body name="gripper_base" pos="0 0 0.0038" quat="1 0 0 -1">
+                <inertial mass="0.777441" pos="0 -2.70394e-05 0.0354675"
+                          quat="1 -0.00152849 0 0"
+                          diaginertia="0.000260285 0.000225381 0.000152708"/>
+                <geom class="visual" mesh="base" material="black"/>
+                <geom class="collision" mesh="base"/>
+                <!-- 末端抓取中心(TCP):两指之间,离法兰 0.1566 m -->
+                <site name="ee" pos="0 0 0.145" type="sphere" group="5"
+                      rgba="0.9 0.9 0.9 1" size="0.005"/>
+
+                <!-- 右侧四杆机构 -->
+                <body name="right_driver" pos="0 0.0306011 0.054904">
+                  <inertial mass="0.00899563" pos="2.96931e-12 0.0177547 0.00107314"
+                            quat="0.681301 0.732003 0 0"
+                            diaginertia="1.72352e-06 1.60906e-06 3.22006e-07"/>
+                  <joint name="right_driver_joint" class="driver"/>
+                  <geom class="visual" mesh="driver" material="gray"/>
+                  <geom class="collision" mesh="driver"/>
+                  <body name="right_coupler" pos="0 0.0315 -0.0041">
+                    <inertial mass="0.0140974" pos="0 0.00301209 0.0232175"
+                              quat="0.705636 -0.0455904 0.0455904 0.705636"
+                              diaginertia="4.16206e-06 3.52216e-06 8.88131e-07"/>
+                    <joint name="right_coupler_joint" class="coupler"/>
+                    <geom class="visual" mesh="coupler" material="black"/>
+                    <geom class="collision" mesh="coupler"/>
+                  </body>
+                </body>
+                <body name="right_spring_link" pos="0 0.0132 0.0609">
+                  <inertial mass="0.0221642" pos="-8.65005e-09 0.0181624 0.0212658"
+                            quat="0.663403 -0.244737 0.244737 0.663403"
+                            diaginertia="8.96853e-06 6.71733e-06 2.63931e-06"/>
+                  <joint name="right_spring_link_joint" class="spring_link"/>
+                  <geom class="visual" mesh="spring_link" material="black"/>
+                  <geom class="collision" mesh="spring_link"/>
+                  <body name="right_follower" pos="0 0.055 0.0375">
+                    <inertial mass="0.0125222" pos="0 -0.011046 0.0124786"
+                              quat="1 0.1664 0 0"
+                              diaginertia="2.67415e-06 2.4559e-06 6.02031e-07"/>
+                    <joint name="right_follower_joint" class="follower"/>
+                    <geom class="visual" mesh="follower" material="black"/>
+                    <geom class="collision" mesh="follower"/>
+                    <body name="right_pad" pos="0 -0.0189 0.01352">
+                      <geom class="pad_box1" name="right_pad1"/>
+                      <geom class="pad_box2" name="right_pad2"/>
+                      <inertial mass="0.0035" pos="0 -0.0025 0.0185"
+                                quat="0.707107 0 0 0.707107"
+                                diaginertia="4.73958e-07 3.64583e-07 1.23958e-07"/>
+                      <geom class="visual" mesh="pad"/>
+                      <body name="right_silicone_pad">
+                        <geom class="visual" mesh="silicone_pad" material="black"/>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+
+                <!-- 左侧四杆机构 -->
+                <body name="left_driver" pos="0 -0.0306011 0.054904" quat="0 0 0 1">
+                  <inertial mass="0.00899563" pos="0 0.0177547 0.00107314"
+                            quat="0.681301 0.732003 0 0"
+                            diaginertia="1.72352e-06 1.60906e-06 3.22006e-07"/>
+                  <joint name="left_driver_joint" class="driver"/>
+                  <geom class="visual" mesh="driver" material="gray"/>
+                  <geom class="collision" mesh="driver"/>
+                  <body name="left_coupler" pos="0 0.0315 -0.0041">
+                    <inertial mass="0.0140974" pos="0 0.00301209 0.0232175"
+                              quat="0.705636 -0.0455904 0.0455904 0.705636"
+                              diaginertia="4.16206e-06 3.52216e-06 8.88131e-07"/>
+                    <joint name="left_coupler_joint" class="coupler"/>
+                    <geom class="visual" mesh="coupler" material="black"/>
+                    <geom class="collision" mesh="coupler"/>
+                  </body>
+                </body>
+                <body name="left_spring_link" pos="0 -0.0132 0.0609" quat="0 0 0 1">
+                  <inertial mass="0.0221642" pos="-8.65005e-09 0.0181624 0.0212658"
+                            quat="0.663403 -0.244737 0.244737 0.663403"
+                            diaginertia="8.96853e-06 6.71733e-06 2.63931e-06"/>
+                  <joint name="left_spring_link_joint" class="spring_link"/>
+                  <geom class="visual" mesh="spring_link" material="black"/>
+                  <geom class="collision" mesh="spring_link"/>
+                  <body name="left_follower" pos="0 0.055 0.0375">
+                    <inertial mass="0.0125222" pos="0 -0.011046 0.0124786"
+                              quat="1 0.1664 0 0"
+                              diaginertia="2.67415e-06 2.4559e-06 6.02031e-07"/>
+                    <joint name="left_follower_joint" class="follower"/>
+                    <geom class="visual" mesh="follower" material="black"/>
+                    <geom class="collision" mesh="follower"/>
+                    <body name="left_pad" pos="0 -0.0189 0.01352">
+                      <geom class="pad_box1" name="left_pad1"/>
+                      <geom class="pad_box2" name="left_pad2"/>
+                      <inertial mass="0.0035" pos="0 -0.0025 0.0185" quat="1 0 0 1"
+                                diaginertia="4.73958e-07 3.64583e-07 1.23958e-07"/>
+                      <geom class="visual" mesh="pad"/>
+                      <body name="left_silicone_pad">
+                        <geom class="visual" mesh="silicone_pad" material="black"/>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <contact>
+    <!-- 底座圆柱和回转台的电机壳体在肩部本来就互相重叠(真实机械臂也是这样)。
+         MuJoCo 会自动排除由关节相连的两个 body 之间的接触,但 base 是无关节的固定
+         底座,这一对不会被自动排除,必须显式写出来;否则会一直存在接触力。 -->
+    <exclude body1="base" body2="shoulder"/>
+    <!-- 夹爪刚性固定在小臂末端,和小臂之间不需要做碰撞(和 Menagerie 原模型同理) -->
+    <exclude body1="link2" body2="gripper_mount"/>
+    <!-- wrist 是无关节的过渡体,它和夹爪法兰之间也不做碰撞 -->
+    <exclude body1="wrist" body2="gripper_mount"/>
+    <exclude body1="link2" body2="wrist"/>
+    <!-- 以下 6 条来自 Robotiq 2F-85 原模型 -->
+    <exclude body1="gripper_base" body2="left_driver"/>
+    <exclude body1="gripper_base" body2="right_driver"/>
+    <exclude body1="gripper_base" body2="left_spring_link"/>
+    <exclude body1="gripper_base" body2="right_spring_link"/>
+    <exclude body1="right_coupler" body2="right_follower"/>
+    <exclude body1="left_coupler" body2="left_follower"/>
+  </contact>
+
+  <!-- 夹爪的四杆机构约束 + 拇指肌腱(和 Menagerie 原模型一致) -->
+  <tendon>
+    <fixed name="split">
+      <joint joint="right_driver_joint" coef="0.5"/>
+      <joint joint="left_driver_joint" coef="0.5"/>
+    </fixed>
+  </tendon>
+
+  <equality>
+    <connect anchor="0 0 0" body1="right_follower" body2="right_coupler"
+             solimp="0.95 0.99 0.001" solref="0.005 1"/>
+    <connect anchor="0 0 0" body1="left_follower" body2="left_coupler"
+             solimp="0.95 0.99 0.001" solref="0.005 1"/>
+    <joint joint1="right_driver_joint" joint2="left_driver_joint" polycoef="0 1 0 0 0"
+           solimp="0.95 0.99 0.001" solref="0.005 1"/>
+  </equality>
+
+  <actuator>
+    <!-- 三个关节各一个位置伺服。俯仰关节要一直对抗重力,所以增益给得比回转高。 -->
+    <position name="motor_yaw" joint="joint1_yaw" kp="400" kv="20"/>
+    <position name="motor_shoulder" joint="joint2_shoulder" kp="3000" kv="120"
+              ctrlrange="-2.8 1.4"/>
+    <position name="motor_elbow" joint="joint3_elbow" kp="1500" kv="60" ctrlrange="-2.9 2.9"/>
+    <!-- 腕部回转:绕小臂轴线转,不限位(可以一直转)。它只带着夹爪转,
+         惯量很小,所以增益给得比另外三个低。 -->
+    <position name="motor_wrist" joint="joint4_wrist" kp="150" kv="8"/>
+    <!-- 夹爪:ctrl[3] 是 0~255 的开合指令,0 = 全开,255 = 闭紧(约 85 mm 行程)。
+         它和原模型一样挂在 split 肌腱上,并用 affine 偏置把控制量换算成力矩。 -->
+    <general class="gripper" name="fingers_actuator" tendon="split" forcerange="-5 5"
+             ctrlrange="0 255" gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="yaw_pos" joint="joint1_yaw"/>
+    <jointpos name="shoulder_pos" joint="joint2_shoulder"/>
+    <jointpos name="elbow_pos" joint="joint3_elbow"/>
+    <jointpos name="wrist_pos" joint="joint4_wrist"/>
+    <jointpos name="gripper_driver_pos" joint="right_driver_joint"/>
+    <framepos name="ee_pos" objtype="site" objname="ee"/>
+  </sensor>
+
+  <keyframe>
+    <!-- 初始位形:回转 0°,肩 -34°(手臂抬起),肘 69°,腕 0°,夹爪全开(ctrl[4]=0) -->
+    <key name="home" qpos="0 -0.6 1.2 0 0 0 0 0 0 0 0 0"
+         ctrl="0 -0.6 1.2 0 0"/>
+  </keyframe>
+</mujoco>
