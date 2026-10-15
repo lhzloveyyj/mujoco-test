@@ -73,9 +73,9 @@ void draw_status(const Sim& sim, const mjrRect& viewport, const mjrContext& con,
   char line1[128], line2[192];
   std::snprintf(line1, sizeof(line1), "t = %.2f s%s", sim.t, paused ? "   [PAUSED]" : "");
   std::snprintf(line2, sizeof(line2),
-                "yaw=%+.1f sh=%+.1f el=%+.1f wr=%+.1f deg | TCP=(%.3f,%.3f,%.3f) grip=%.0fmm",
-                sim.qpos_deg(0), sim.qpos_deg(1), sim.qpos_deg(2), sim.qpos_deg(3), tp[0],
-                tp[1], tp[2], sim.grip_mm());
+                "yaw=%+.1f sh=%+.1f el=%+.1f fr=%+.1f wr=%+.1f | TCP=(%.2f,%.2f,%.2f) grip=%.0fmm",
+                sim.qpos_deg(0), sim.qpos_deg(1), sim.qpos_deg(2), sim.qpos_deg(3),
+                sim.qpos_deg(4), tp[0], tp[1], tp[2], sim.grip_mm());
   mjr_overlay(mjFONT_NORMAL, mjGRID_TOPLEFT, viewport, line1, line2, &con);
 }
 
@@ -94,7 +94,7 @@ void print_usage_hint() {
   std::printf("  鼠标左键拖动 = 转视角,右键拖动 = 平移,滚轮 = 缩放\n");
   std::printf("  空格 = 暂停/继续,M = 显示/隐藏底部电机信息,Esc = 退出\n");
   std::printf("电机在哪:\n");
-  std::printf("  手臂四个关节处,深灰色圆柱壳体 + 橙色转子法兰就是电机;\n");
+  std::printf("  手臂五个关节处(含小臂中段),深灰色圆柱壳体 + 橙色转子法兰就是电机;\n");
   std::printf("  壳体固定在不转的一侧(底座 / 近端连杆),转子跟着远端连杆转。\n");
   std::printf("  末端是 Robotiq 2F-85 夹爪(四杆机构,1 个驱动器带 8 个关节)。\n");
   std::printf("  左下角列出每个执行器驱动的关节/肌腱和它当前的出力(臂 N·m,夹爪 N·m)\n");

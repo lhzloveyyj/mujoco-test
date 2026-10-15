@@ -41,9 +41,13 @@ struct Sim {
     const int tid = mj_name2id(m, mjOBJ_BODY, "target");
     mocap = (tid >= 0) ? m->body_mocapid[tid] : -1;
     L1 = m->body_pos[3 * mj_name2id(m, mjOBJ_BODY, "link2") + 0];
-    // 胶囊几何体用 fromto 定义:size[1] 是两球心距离的一半,也就是连杆长度的一半
-    const int g2 = mj_name2id(m, mjOBJ_GEOM, "link2_geom");
-    L2 = 2.0 * m->geom_size[3 * g2 + 1];
+    // 胶囊几何体用 fromto 定义:size[1] 是两球心距离的一半,也就是连杆长度的一半。
+    // 小臂被"小臂回转关节"分成两段,长度加起来才是完整小臂。
+    L2 = 0.0;
+    for (const char* gname : {"link2_geom", "link2b_geom"}) {
+      const int g = mj_name2id(m, mjOBJ_GEOM, gname);
+      if (g >= 0) L2 += 2.0 * m->geom_size[3 * g + 1];
+    }
     // 夹爪刚性固定在法兰上,所以"法兰→TCP"的距离是常数,随便摆个姿态量一下即可
     const int mount = mj_name2id(m, mjOBJ_BODY, "gripper_mount");
     pad_l = mj_name2id(m, mjOBJ_GEOM, "left_pad1");

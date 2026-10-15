@@ -65,9 +65,9 @@ int main(int argc, char** argv) {
   std::printf("模型:%s\n", xml.c_str());
   std::printf("  大臂 %.3f m,小臂 %.3f m;Robotiq 2F-85 夹爪从法兰再伸出 %.3f m;步长 %.4f s\n",
               sim.L1, sim.L2, sim.tool, sim.dt);
-  std::printf("  模型共 %ld 个自由度:4 个臂关节(回转/肩/肘/腕)+ 夹爪内部 8 个\n",
+  std::printf("  模型共 %ld 个自由度:5 个臂关节(回转/肩/肘/小臂回转/腕回转)+ 夹爪内部 8 个\n",
               (long)sim.m->nq);   // nq 是 mjtSize(long),所以要转一下才能配 %ld
-  std::printf("  控制量:d->ctrl[0..3] = 四个关节目标角,d->ctrl[4] = 夹爪开合(0~255)\n");
+  std::printf("  控制量:d->ctrl[0..4] = 五个关节目标角,d->ctrl[5] = 夹爪开合(0~255)\n");
   std::printf("你的算法在 src/control.cpp 的 my_algorithm() 里\n\n");
 
   // ---------------------------------------------------------------------

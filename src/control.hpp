@@ -15,16 +15,17 @@ inline constexpr double kPi = 3.14159265358979323846;
 //     t       当前仿真时间(秒)
 //     dt      仿真步长(秒)
 //
-// 模型里有什么(对应 models/two_link_arm.xml)—— 4 自由度手臂 + Robotiq 2F-85 夹爪:
+// 模型里有什么(对应 models/two_link_arm.xml)—— 5 自由度手臂 + Robotiq 2F-85 夹爪:
 //     joint1_yaw          绕 z 轴回转(底座)      d->qpos[0] / d->ctrl[0]
 //     joint2_shoulder     绕 y 轴俯仰(肩)        d->qpos[1] / d->ctrl[1]
 //     joint3_elbow        绕 y 轴俯仰(肘)        d->qpos[2] / d->ctrl[2]
-//     joint4_wrist        绕小臂轴线回转(腕)      d->qpos[3] / d->ctrl[3]
-//                         —— 轴和小臂同轴,转它只是让夹爪"绕杆转圈",
-//                            张合方向跟着转,TCP 位置不动
+//     joint4_forearm_roll 绕小臂轴线回转(小臂中段,真机 J4 的位置) d->qpos[3] / d->ctrl[3]
+//     joint5_wrist_roll   绕小臂轴线回转(法兰处,腕)               d->qpos[4] / d->ctrl[4]
+//                         —— 这两个轴都和杆同轴,转它们只是让下游"绕杆转圈":
+//                            张合方向跟着转、TCP 位置不动,所以末端姿态上是冗余的
 //     夹爪(Robotiq 2F-85) 8 个关节的四杆机构,由 1 个驱动器 + equality 约束联动
-//                         d->ctrl[4]     = 开合指令 0~255:**0 = 全开,255 = 闭紧**
-//                         d->qpos[4..11] = 夹爪内部 8 个关节角(耦合的,一般不用直接读)
+//                         d->ctrl[5]     = 开合指令 0~255:**0 = 全开,255 = 闭紧**
+//                         d->qpos[5..12] = 夹爪内部 8 个关节角(耦合的,一般不用直接读)
 //     site "ee"           末端标记 = 两指之间的抓取中心(TCP)
 //     body "target"       mocap 目标点,改 d->mocap_pos 就能挪它
 //

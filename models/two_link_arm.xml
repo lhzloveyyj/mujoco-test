@@ -5,18 +5,22 @@
          joint1_yaw       绕 z 轴回转(底座)
          joint2_shoulder  绕 y 轴俯仰(肩) —— 手臂在这里上下摆
          joint3_elbow     绕 y 轴俯仰(肘)
-         joint4_wrist     绕小臂轴线回转(腕,和小臂同轴)—— 让夹爪张合方向转圈
+         joint4_forearm_roll  绕小臂轴线回转(小臂中段,真机 J4 的位置)
+         joint5_wrist_roll    绕小臂轴线回转(法兰处,腕)
+                         —— 这两个都和小臂同轴,所以末端姿态上是冗余的;
+                            真机在它们之间会有一个"腕俯仰"自由度,这里没有。
+                            只想要一个的话,把其中一个的关节固定住即可。
          每个关节都配了电机外形(深灰壳体 + 橙色转子法兰)
 
        夹爪(Robotiq 2F-85,来自 MuJoCo Menagerie,BSD-3-Clause,见 models/assets/LICENSE):
          1 个驱动器 fingers_actuator 驱动左右两根驱动杆,4 杆机构靠 equality 约束闭合,
-         所以 8 个关节只有 1 个自由度。ctrl[4] 范围 0~255:**0 = 全开,255 = 闭紧**
+         所以 8 个关节只有 1 个自由度。ctrl[5] 范围 0~255:**0 = 全开,255 = 闭紧**
          (指垫间距 98 mm → 15 mm,行程约 85 mm,和真机规格一致;闭紧时两片指垫会互相接触,
          这是原模型自带的行为,不是 bug)。
          网格单位是毫米,asset 里按 0.001 缩放。
 
        注意:俯仰关节的轴不平行于重力方向,所以重力会产生关节力矩 —— 位置伺服要一直出力撑住。
-       4 个臂关节(含腕回转)+ 夹爪 1 个自由度 = 5 个可驱动自由度(夹爪内部 8 个关节是耦合的)。 -->
+       5 个臂关节(含小臂回转和腕回转)+ 夹爪 1 个自由度 = 6 个可驱动自由度。 -->
   <!-- meshdir 不设 = 网格路径相对本文件所在目录(models/)。
        网格按"部件"分文件夹,所以这里写全相对路径,以后加别的部件不会打架。 -->
   <compiler angle="radian" autolimits="true"/>
@@ -156,22 +160,37 @@
             <joint name="joint3_elbow" axis="0 1 0" range="-2.9 2.9"/>
             <geom name="motor_el_rotor" type="cylinder" size="0.026 0.012" pos="0 -0.034 0"
                   quat="0.70710678 -0.70710678 0 0" material="motor_cap_mat"/>
-            <geom name="link2_geom" fromto="0 0 0 0.4 0 0" material="link2_mat"/>
+            <!-- 小臂前半段:肘 → 中段(x 从 0 到 0.25) -->
+            <geom name="link2_geom" fromto="0 0 0 0.25 0 0" material="link2_mat"/>
+
+            <!-- ===== 小臂回转电机(真机 J4 的位置):轴线沿杆,把小臂分成两段 =====
+                 壳体(深灰套筒)固定在前半段上、不跟着转;橙色薄盘是转子,带着后半段转。 -->
+            <geom name="motor_fr_housing" type="cylinder" size="0.040 0.026" pos="0.222 0 0"
+                  quat="0.70710678 0 0.70710678 0" material="motor_mat"/>
+            <geom name="motor_fr_flange" type="cylinder" size="0.046 0.005" pos="0.190 0 0"
+                  quat="0.70710678 0 0.70710678 0" material="motor_mat"/>
+
+            <body name="link2b" pos="0.25 0 0">
+              <joint name="joint4_forearm_roll" axis="1 0 0"/>
+              <geom name="motor_fr_rotor" type="cylinder" size="0.028 0.009" pos="0.005 0 0"
+                    quat="0.70710678 0 0.70710678 0" material="motor_cap_mat"/>
+              <!-- 小臂后半段:中段 → 法兰(x 从 0.25 到 0.40) -->
+              <geom name="link2b_geom" fromto="0 0 0 0.15 0 0" material="link2_mat"/>
 
             <!-- ================= Robotiq 2F-85 夹爪 =================
-                 安装:法兰在小臂末端 x=0.40(截面是 y-z 平面)。
+                 安装:法兰在小臂末端(离肘 0.40 m,截面是 y-z 平面)。
                  夹爪模型的工具轴是 +z,所以绕 y 转 90° 让它指向 +x(顺着小臂)。
                  (quat = 绕 y 轴 +90° 的四元数) -->
-            <!-- ===== 腕部回转电机:轴线和小臂重合,让夹爪绕着杆的轴向转 =====
-                 壳体(深灰套筒)固定在小臂上、不跟着转;橙色薄盘是转子,跟着夹爪一起转。
-                 joint4_wrist 的轴就是小臂的 +x,也就是杆的轴向。 -->
-            <geom name="motor_wr_housing" type="cylinder" size="0.040 0.026" pos="0.372 0 0"
+            <!-- ===== 腕部回转电机:轴线也和小臂重合,让夹爪绕着杆的轴向转 =====
+                 它和小臂回转(J4)同轴 —— 也就是说这一对在末端姿态上是冗余的,
+                 真机在两者之间会有一个"腕俯仰"自由度来分开它们,这里没有。 -->
+            <geom name="motor_wr_housing" type="cylinder" size="0.040 0.026" pos="0.122 0 0"
                   quat="0.70710678 0 0.70710678 0" material="motor_mat"/>
-            <geom name="motor_wr_flange" type="cylinder" size="0.046 0.005" pos="0.338 0 0"
+            <geom name="motor_wr_flange" type="cylinder" size="0.046 0.005" pos="0.088 0 0"
                   quat="0.70710678 0 0.70710678 0" material="motor_mat"/>
 
-            <body name="wrist" pos="0.40 0 0">
-              <joint name="joint4_wrist" axis="1 0 0"/>
+            <body name="wrist" pos="0.15 0 0">
+              <joint name="joint5_wrist_roll" axis="1 0 0"/>
               <geom name="motor_wr_rotor" type="cylinder" size="0.028 0.009" pos="0.005 0 0"
                     quat="0.70710678 0 0.70710678 0" material="motor_cap_mat"/>
 
@@ -281,6 +300,7 @@
               </body>
             </body>
             </body>
+            </body>
           </body>
         </body>
       </body>
@@ -329,9 +349,10 @@
     <position name="motor_shoulder" joint="joint2_shoulder" kp="3000" kv="120"
               ctrlrange="-2.8 1.4"/>
     <position name="motor_elbow" joint="joint3_elbow" kp="1500" kv="60" ctrlrange="-2.9 2.9"/>
-    <!-- 腕部回转:绕小臂轴线转,不限位(可以一直转)。它只带着夹爪转,
-         惯量很小,所以增益给得比另外三个低。 -->
-    <position name="motor_wrist" joint="joint4_wrist" kp="150" kv="8"/>
+    <!-- 小臂回转(J4)和腕部回转(J5)都是绕小臂轴线转、不限位。
+         它们只带着"半截小臂 + 夹爪"或"夹爪"转,惯量小,所以增益给得比前三个低。 -->
+    <position name="motor_forearm" joint="joint4_forearm_roll" kp="150" kv="8"/>
+    <position name="motor_wrist" joint="joint5_wrist_roll" kp="150" kv="8"/>
     <!-- 夹爪:ctrl[3] 是 0~255 的开合指令,0 = 全开,255 = 闭紧(约 85 mm 行程)。
          它和原模型一样挂在 split 肌腱上,并用 affine 偏置把控制量换算成力矩。 -->
     <general class="gripper" name="fingers_actuator" tendon="split" forcerange="-5 5"
@@ -342,14 +363,16 @@
     <jointpos name="yaw_pos" joint="joint1_yaw"/>
     <jointpos name="shoulder_pos" joint="joint2_shoulder"/>
     <jointpos name="elbow_pos" joint="joint3_elbow"/>
-    <jointpos name="wrist_pos" joint="joint4_wrist"/>
+    <jointpos name="forearm_pos" joint="joint4_forearm_roll"/>
+    <jointpos name="wrist_pos" joint="joint5_wrist_roll"/>
     <jointpos name="gripper_driver_pos" joint="right_driver_joint"/>
     <framepos name="ee_pos" objtype="site" objname="ee"/>
   </sensor>
 
   <keyframe>
-    <!-- 初始位形:回转 0°,肩 -34°(手臂抬起),肘 69°,腕 0°,夹爪全开(ctrl[4]=0) -->
-    <key name="home" qpos="0 -0.6 1.2 0 0 0 0 0 0 0 0 0"
-         ctrl="0 -0.6 1.2 0 0"/>
+    <!-- 初始位形:回转 0°,肩 -34°(手臂抬起),肘 69°,小臂回转 0°,腕 0°,
+         夹爪全开(ctrl[5]=0) -->
+    <key name="home" qpos="0 -0.6 1.2 0 0 0 0 0 0 0 0 0 0"
+         ctrl="0 -0.6 1.2 0 0 0"/>
   </keyframe>
 </mujoco>
