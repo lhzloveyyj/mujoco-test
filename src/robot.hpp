@@ -42,7 +42,7 @@ struct Sim {
     mocap = (tid >= 0) ? m->body_mocapid[tid] : -1;
     L1 = m->body_pos[3 * mj_name2id(m, mjOBJ_BODY, "link2") + 0];
     // 胶囊几何体用 fromto 定义:size[1] 是两球心距离的一半,也就是连杆长度的一半。
-    // 小臂被"小臂回转关节"分成两段,长度加起来才是完整小臂。
+    // 小臂被中段那个俯仰关节分成两段,长度加起来才是完整小臂。
     L2 = 0.0;
     for (const char* gname : {"link2_geom", "link2b_geom"}) {
       const int g = mj_name2id(m, mjOBJ_GEOM, gname);
